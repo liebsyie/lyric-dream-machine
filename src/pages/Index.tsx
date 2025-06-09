@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Music, Playlist } from 'lucide-react';
+import { Music, ListMusic } from 'lucide-react';
 import PinAuth from '@/components/PinAuth';
 import SongGenerator from '@/components/SongGenerator';
 import PlaylistManager from '@/components/PlaylistManager';
@@ -79,7 +79,7 @@ const Index = () => {
                   My Songs
                 </TabsTrigger>
                 <TabsTrigger value="playlists" className="flex items-center gap-2">
-                  <Playlist className="h-4 w-4" />
+                  <ListMusic className="h-4 w-4" />
                   Playlists
                 </TabsTrigger>
               </TabsList>
