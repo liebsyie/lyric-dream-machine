@@ -9,7 +9,123 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      playlist_songs: {
+        Row: {
+          added_at: string
+          id: string
+          playlist_id: string
+          position: number
+          song_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          playlist_id: string
+          position?: number
+          song_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          playlist_id?: string
+          position?: number
+          song_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_songs_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "playlists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_songs_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playlists: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      songs: {
+        Row: {
+          artist: string
+          audio_url: string | null
+          cover_url: string | null
+          created_at: string
+          duration: string
+          genre: string
+          id: string
+          lyrics: string | null
+          mood: string | null
+          title: string
+          updated_at: string
+          version: string | null
+          vocal_type: string | null
+        }
+        Insert: {
+          artist: string
+          audio_url?: string | null
+          cover_url?: string | null
+          created_at?: string
+          duration: string
+          genre: string
+          id?: string
+          lyrics?: string | null
+          mood?: string | null
+          title: string
+          updated_at?: string
+          version?: string | null
+          vocal_type?: string | null
+        }
+        Update: {
+          artist?: string
+          audio_url?: string | null
+          cover_url?: string | null
+          created_at?: string
+          duration?: string
+          genre?: string
+          id?: string
+          lyrics?: string | null
+          mood?: string | null
+          title?: string
+          updated_at?: string
+          version?: string | null
+          vocal_type?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -1,10 +1,10 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Play, Download, Edit, Copy, Trash2, Search } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Play, Download, Edit, Copy, Trash2, Search, Pause } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface Song {
@@ -13,24 +13,27 @@ interface Song {
   artist: string;
   genre: string;
   mood: string;
-  vocalType: string;
+  vocal_type: string;
   duration: string;
   version: string;
   lyrics: string;
-  coverUrl?: string;
-  audioUrl?: string;
-  createdAt: Date;
+  cover_url?: string;
+  audio_url?: string;
+  created_at: string;
 }
 
 interface SongLibraryProps {
   songs: Song[];
+  loading: boolean;
   onDeleteSong: (songId: string) => void;
   onCloneSong: (song: Song) => void;
 }
 
-const SongLibrary = ({ songs, onDeleteSong, onCloneSong }: SongLibraryProps) => {
+const SongLibrary = ({ songs, loading, onDeleteSong, onCloneSong }: SongLibraryProps) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGenre, setFilterGenre] = useState('');
+  const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
 
   const filteredSongs = songs.filter(song => {
     const matchesSearch = song.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,12 +44,43 @@ const SongLibrary = ({ songs, onDeleteSong, onCloneSong }: SongLibraryProps) => 
 
   const uniqueGenres = [...new Set(songs.map(song => song.genre))];
 
+  const playSong = (song: Song) => {
+    if (!song.audio_url || !audioRef.current) return;
+
+    if (currentlyPlaying === song.id) {
+      // Pause current song
+      audioRef.current.pause();
+      setCurrentlyPlaying(null);
+      toast({
+        title: "Paused",
+        description: `"${song.title}" paused`
+      });
+    } else {
+      // Play new song
+      audioRef.current.src = song.audio_url;
+      audioRef.current.play().then(() => {
+        setCurrentlyPlaying(song.id);
+        toast({
+          title: "Now Playing",
+          description: `"${song.title}" by ${song.artist}`
+        });
+      }).catch(error => {
+        console.error('Error playing audio:', error);
+        toast({
+          title: "Error",
+          description: "Could not play audio",
+          variant: "destructive"
+        });
+      });
+    }
+  };
+
   const downloadSong = (song: Song) => {
-    if (!song.audioUrl) return;
+    if (!song.audio_url) return;
     
     const link = document.createElement('a');
-    link.href = song.audioUrl;
-    link.download = `${song.artist}_${song.title}.mp3`;
+    link.href = song.audio_url;
+    link.download = `${song.artist}_${song.title}.wav`;
     link.click();
     
     toast({
@@ -56,6 +90,12 @@ const SongLibrary = ({ songs, onDeleteSong, onCloneSong }: SongLibraryProps) => 
   };
 
   const deleteSong = (song: Song) => {
+    // Stop playing if this song is currently playing
+    if (currentlyPlaying === song.id && audioRef.current) {
+      audioRef.current.pause();
+      setCurrentlyPlaying(null);
+    }
+    
     onDeleteSong(song.id);
     toast({
       title: "Song Deleted",
@@ -71,8 +111,73 @@ const SongLibrary = ({ songs, onDeleteSong, onCloneSong }: SongLibraryProps) => 
     });
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search songs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Input
+            placeholder="Filter by genre..."
+            value={filterGenre}
+            onChange={(e) => setFilterGenre(e.target.value)}
+            className="sm:w-48"
+          />
+        </div>
+
+        {uniqueGenres.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={filterGenre === '' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterGenre('')}
+            >
+              All
+            </Button>
+            {uniqueGenres.map((genre) => (
+              <Button
+                key={genre}
+                variant={filterGenre === genre ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterGenre(genre)}
+              >
+                {genre}
+              </Button>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Skeleton className="glass-effect" />
+          <Skeleton className="glass-effect" />
+          <Skeleton className="glass-effect" />
+          <Skeleton className="glass-effect" />
+          <Skeleton className="glass-effect" />
+          <Skeleton className="glass-effect" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Hidden audio element for playback */}
+      <audio
+        ref={audioRef}
+        onEnded={() => setCurrentlyPlaying(null)}
+        onError={() => {
+          console.error('Audio playback error');
+          setCurrentlyPlaying(null);
+        }}
+      />
+
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -122,9 +227,9 @@ const SongLibrary = ({ songs, onDeleteSong, onCloneSong }: SongLibraryProps) => 
                   <CardTitle className="text-lg truncate">{song.title}</CardTitle>
                   <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
                 </div>
-                {song.coverUrl && (
+                {song.cover_url && (
                   <img
-                    src={song.coverUrl}
+                    src={song.cover_url}
                     alt={song.title}
                     className="w-12 h-12 rounded object-cover"
                   />
@@ -138,9 +243,9 @@ const SongLibrary = ({ songs, onDeleteSong, onCloneSong }: SongLibraryProps) => 
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {song.vocalType && (
+                {song.vocal_type && (
                   <p className="text-sm text-muted-foreground">
-                    Vocal: {song.vocalType}
+                    Vocal: {song.vocal_type}
                   </p>
                 )}
                 
@@ -151,8 +256,13 @@ const SongLibrary = ({ songs, onDeleteSong, onCloneSong }: SongLibraryProps) => 
                 )}
 
                 <div className="flex flex-wrap gap-1">
-                  <Button variant="outline" size="sm">
-                    <Play className="h-3 w-3" />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => playSong(song)}
+                    className={currentlyPlaying === song.id ? 'bg-primary text-primary-foreground' : ''}
+                  >
+                    {currentlyPlaying === song.id ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => downloadSong(song)}>
                     <Download className="h-3 w-3" />
@@ -169,7 +279,7 @@ const SongLibrary = ({ songs, onDeleteSong, onCloneSong }: SongLibraryProps) => 
                 </div>
 
                 <div className="text-xs text-muted-foreground">
-                  Created {song.createdAt.toLocaleDateString()}
+                  Created {new Date(song.created_at).toLocaleDateString()}
                 </div>
               </div>
             </CardContent>
