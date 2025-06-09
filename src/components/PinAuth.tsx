@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,9 +13,18 @@ const PinAuth = ({ onAuthenticated }: PinAuthProps) => {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    // Check if user is already authenticated from localStorage
+    const isAuthenticated = localStorage.getItem('musicapp_authenticated');
+    if (isAuthenticated === 'true') {
+      onAuthenticated();
+    }
+  }, [onAuthenticated]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pin === '119187100129') {
+      localStorage.setItem('musicapp_authenticated', 'true');
       onAuthenticated();
     } else {
       setError('Invalid PIN');

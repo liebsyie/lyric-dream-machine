@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Music, Upload, Play, Download, Pause } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { generateAIMusic } from '@/utils/audioGenerator';
 
 interface Song {
   id: string;
@@ -44,13 +45,14 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [generatedSong, setGeneratedSong] = useState<{ audioUrl: string; songData: any } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const generateLyrics = () => {
     const sampleLyrics = {
       'pop': "Verse 1:\nDancing through the city lights tonight\nEverything's gonna be alright\nMusic pumping, hearts are beating fast\nThis moment's gonna last\n\nChorus:\nWe're unstoppable, unbreakable\nReaching for the stars above\nNothing's gonna stop us now\nThis is what we're dreaming of",
       'jazz': "Verse 1:\nSmoky room, piano keys so sweet\nRhythm makes my heart skip a beat\nSax is playing melodies so blue\nAll I need is me and you\n\nChorus:\nIn this jazzy state of mind\nLeave our worries far behind\nLet the music take control\nJazz will heal your weary soul",
+      'rock': "Verse 1:\nElectric energy running through my veins\nBreaking free from all these chains\nAmplified and ready to explode\nThis is our rebellious code\n\nChorus:\nWe rock the night away\nNothing left to say\nFeel the power in the sound\nRock will shake the ground",
       'default': "Verse 1:\nWords flowing like a river deep\nMelodies that make you weep\nEvery note tells a story true\nThis song was made for you\n\nChorus:\nSing along, feel the beat\nLife's a symphony so sweet\nEvery moment, every rhyme\nMusic transcends space and time"
     };
 
@@ -60,71 +62,6 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
       title: "Lyrics Generated",
       description: "AI has generated lyrics based on your genre and mood!"
     });
-  };
-
-  // Generate a simple audio tone for demonstration (free implementation)
-  const generateDemoAudio = (): string => {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const sampleRate = audioContext.sampleRate;
-    const duration = 5; // 5 seconds demo
-    const numSamples = sampleRate * duration;
-    const buffer = audioContext.createBuffer(1, numSamples, sampleRate);
-    const channelData = buffer.getChannelData(0);
-
-    // Generate a simple melody based on genre
-    const baseFreq = formData.genre.toLowerCase().includes('jazz') ? 220 : 
-                    formData.genre.toLowerCase().includes('pop') ? 440 : 330;
-
-    for (let i = 0; i < numSamples; i++) {
-      const time = i / sampleRate;
-      const frequency = baseFreq + Math.sin(time * 2) * 50; // Add some variation
-      channelData[i] = Math.sin(2 * Math.PI * frequency * time) * 0.3 * Math.exp(-time * 0.5);
-    }
-
-    // Convert to WAV blob URL
-    const wavBlob = audioBufferToWav(buffer);
-    return URL.createObjectURL(wavBlob);
-  };
-
-  // Helper function to convert audio buffer to WAV
-  const audioBufferToWav = (buffer: AudioBuffer): Blob => {
-    const length = buffer.length;
-    const result = new Float32Array(length);
-    buffer.copyFromChannel(result, 0);
-    
-    const wavBuffer = new ArrayBuffer(44 + length * 2);
-    const view = new DataView(wavBuffer);
-    
-    // WAV header
-    const writeString = (offset: number, string: string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
-    };
-    
-    writeString(0, 'RIFF');
-    view.setUint32(4, 36 + length * 2, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, buffer.sampleRate, true);
-    view.setUint32(28, buffer.sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, 'data');
-    view.setUint32(40, length * 2, true);
-    
-    // Convert float samples to 16-bit PCM
-    let offset = 44;
-    for (let i = 0; i < length; i++) {
-      const sample = Math.max(-1, Math.min(1, result[i]));
-      view.setInt16(offset, sample * 0x7FFF, true);
-      offset += 2;
-    }
-    
-    return new Blob([wavBuffer], { type: 'audio/wav' });
   };
 
   const generateSong = async () => {
@@ -139,6 +76,7 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
 
     setIsGenerating(true);
     setProgress(0);
+    setGeneratedSong(null);
 
     // Simulate AI generation process (1 minute total like Suno AI)
     const steps = [
@@ -158,25 +96,32 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
       });
     }
 
-    // Generate demo audio
-    const audioUrl = generateDemoAudio();
-    setPreviewUrl(audioUrl);
+    // Generate actual AI music
+    const audioUrl = generateAIMusic({
+      genre: formData.genre,
+      mood: formData.mood,
+      duration: formData.duration,
+      vocalType: formData.vocalType,
+      title: formData.title,
+      artist: formData.artist
+    });
+
+    const songData = {
+      title: formData.title,
+      artist: formData.artist,
+      genre: formData.genre,
+      mood: formData.mood || null,
+      vocal_type: formData.vocalType || null,
+      duration: formData.duration,
+      version: formData.version || null,
+      lyrics: formData.lyrics || null,
+      cover_url: coverFile ? URL.createObjectURL(coverFile) : null,
+      audio_url: audioUrl
+    };
+
+    setGeneratedSong({ audioUrl, songData });
 
     try {
-      // Save song to Supabase
-      const songData = {
-        title: formData.title,
-        artist: formData.artist,
-        genre: formData.genre,
-        mood: formData.mood || null,
-        vocal_type: formData.vocalType || null,
-        duration: formData.duration,
-        version: formData.version || null,
-        lyrics: formData.lyrics || null,
-        cover_url: coverFile ? URL.createObjectURL(coverFile) : null,
-        audio_url: audioUrl
-      };
-
       const { data, error } = await supabase
         .from('songs')
         .insert([songData])
@@ -197,19 +142,6 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
       setIsGenerating(false);
       setProgress(100);
 
-      // Reset form
-      setFormData({
-        title: '',
-        artist: '',
-        genre: '',
-        mood: '',
-        vocalType: '',
-        duration: '',
-        version: '',
-        lyrics: ''
-      });
-      setCoverFile(null);
-
       toast({
         title: "Song Generated!",
         description: `"${formData.title}" has been created successfully and saved!`
@@ -227,7 +159,7 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
   };
 
   const togglePreview = () => {
-    if (!audioRef.current || !previewUrl) return;
+    if (!audioRef.current || !generatedSong) return;
 
     if (isPlaying) {
       audioRef.current.pause();
@@ -241,7 +173,7 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
         setIsPlaying(true);
         toast({
           title: "Playing",
-          description: "Playing song preview"
+          description: "Playing generated song"
         });
       }).catch(error => {
         console.error('Error playing audio:', error);
@@ -255,17 +187,34 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
   };
 
   const downloadSong = () => {
-    if (!previewUrl) return;
+    if (!generatedSong) return;
     
     const link = document.createElement('a');
-    link.href = previewUrl;
+    link.href = generatedSong.audioUrl;
     link.download = `${formData.artist}_${formData.title}.wav`;
     link.click();
     
     toast({
       title: "Downloaded",
-      description: "Song downloaded with full metadata!"
+      description: `"${formData.title}" downloaded successfully!`
     });
+  };
+
+  const createNewSong = () => {
+    setFormData({
+      title: '',
+      artist: '',
+      genre: '',
+      mood: '',
+      vocalType: '',
+      duration: '',
+      version: '',
+      lyrics: ''
+    });
+    setCoverFile(null);
+    setGeneratedSong(null);
+    setIsPlaying(false);
+    setProgress(0);
   };
 
   return (
@@ -284,6 +233,7 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
               placeholder="Enter song title"
+              disabled={isGenerating}
             />
           </div>
           <div className="space-y-2">
@@ -292,6 +242,7 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
               value={formData.artist}
               onChange={(e) => setFormData(prev => ({ ...prev, artist: e.target.value }))}
               placeholder="Enter artist name"
+              disabled={isGenerating}
             />
           </div>
         </div>
@@ -302,7 +253,8 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
             <Input
               value={formData.genre}
               onChange={(e) => setFormData(prev => ({ ...prev, genre: e.target.value }))}
-              placeholder="e.g., pop, jazz, lo-fi, classical"
+              placeholder="e.g., pop, jazz, rock, electronic"
+              disabled={isGenerating}
             />
           </div>
           <div className="space-y-2">
@@ -310,7 +262,8 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
             <Input
               value={formData.mood}
               onChange={(e) => setFormData(prev => ({ ...prev, mood: e.target.value }))}
-              placeholder="e.g., hopeful, nostalgic, dreamy"
+              placeholder="e.g., happy, sad, energetic, calm"
+              disabled={isGenerating}
             />
           </div>
         </div>
@@ -322,11 +275,12 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
               value={formData.vocalType}
               onChange={(e) => setFormData(prev => ({ ...prev, vocalType: e.target.value }))}
               placeholder="e.g., soft female, husky male, robotic"
+              disabled={isGenerating}
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Duration *</label>
-            <Select value={formData.duration} onValueChange={(value) => setFormData(prev => ({ ...prev, duration: value }))}>
+            <Select value={formData.duration} onValueChange={(value) => setFormData(prev => ({ ...prev, duration: value }))} disabled={isGenerating}>
               <SelectTrigger>
                 <SelectValue placeholder="Select duration" />
               </SelectTrigger>
@@ -343,7 +297,7 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Version Style</label>
-          <Select value={formData.version} onValueChange={(value) => setFormData(prev => ({ ...prev, version: value }))}>
+          <Select value={formData.version} onValueChange={(value) => setFormData(prev => ({ ...prev, version: value }))} disabled={isGenerating}>
             <SelectTrigger>
               <SelectValue placeholder="Select version style" />
             </SelectTrigger>
@@ -359,7 +313,7 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <label className="text-sm font-medium">Lyrics</label>
-            <Button variant="outline" size="sm" onClick={generateLyrics}>
+            <Button variant="outline" size="sm" onClick={generateLyrics} disabled={isGenerating}>
               Generate AI Lyrics
             </Button>
           </div>
@@ -368,6 +322,7 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
             onChange={(e) => setFormData(prev => ({ ...prev, lyrics: e.target.value }))}
             placeholder="Enter your lyrics or generate AI lyrics..."
             rows={8}
+            disabled={isGenerating}
           />
         </div>
 
@@ -379,8 +334,9 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
               accept="image/*"
               onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
               className="flex-1"
+              disabled={isGenerating}
             />
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled={isGenerating}>
               <Upload className="h-4 w-4" />
             </Button>
           </div>
@@ -389,41 +345,55 @@ const SongGenerator = ({ onSongGenerated }: SongGeneratorProps) => {
         {isGenerating && (
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Generating song... (1 minute like Suno AI)</span>
+              <span>Generating AI song... (1 minute)</span>
               <span>{progress}%</span>
             </div>
             <Progress value={progress} className="w-full" />
           </div>
         )}
 
-        {previewUrl && (
-          <div className="flex items-center gap-2 p-4 rounded-lg bg-secondary">
+        {generatedSong && (
+          <div className="space-y-4 p-4 rounded-lg bg-secondary/50 border">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">Generated Song Ready!</h3>
+              <Button variant="outline" size="sm" onClick={createNewSong}>
+                Create New Song
+              </Button>
+            </div>
+            
             <audio
               ref={audioRef}
-              src={previewUrl}
+              src={generatedSong.audioUrl}
               onEnded={() => setIsPlaying(false)}
               onError={() => {
                 console.error('Audio playback error');
                 setIsPlaying(false);
               }}
             />
-            <Button variant="outline" size="sm" onClick={togglePreview}>
-              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            </Button>
-            <span className="flex-1 text-sm">Song Preview (Demo Audio)</span>
-            <Button variant="outline" size="sm" onClick={downloadSong}>
-              <Download className="h-4 w-4" />
-            </Button>
+            
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={togglePreview}>
+                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {isPlaying ? 'Pause' : 'Play'}
+              </Button>
+              <span className="flex-1 text-sm">"{formData.title}" by {formData.artist}</span>
+              <Button variant="outline" size="sm" onClick={downloadSong}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
           </div>
         )}
 
-        <Button
-          onClick={generateSong}
-          disabled={isGenerating}
-          className="w-full music-gradient hover:opacity-90"
-        >
-          {isGenerating ? 'Generating... (1 min)' : 'Generate Song'}
-        </Button>
+        {!generatedSong && (
+          <Button
+            onClick={generateSong}
+            disabled={isGenerating}
+            className="w-full music-gradient hover:opacity-90"
+          >
+            {isGenerating ? 'Generating AI Song... (1 min)' : 'Generate AI Song'}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

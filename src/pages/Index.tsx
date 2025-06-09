@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Music, ListMusic } from 'lucide-react';
+import { Music, ListMusic, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import PinAuth from '@/components/PinAuth';
 import SongGenerator from '@/components/SongGenerator';
@@ -29,6 +30,16 @@ const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check localStorage for authentication
+    const authStatus = localStorage.getItem('musicapp_authenticated');
+    if (authStatus === 'true') {
+      setIsAuthenticated(true);
+    } else {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -97,12 +108,21 @@ const Index = () => {
     };
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('musicapp_authenticated');
+    setIsAuthenticated(false);
+    setSongs([]);
+    toast({
+      title: "Logged Out",
+      description: "You have been logged out successfully"
+    });
+  };
+
   if (!isAuthenticated) {
     return <PinAuth onAuthenticated={() => setIsAuthenticated(true)} />;
   }
 
   const handleSongGenerated = (song: Song) => {
-    // Song will be automatically added via realtime subscription
     console.log('Song generated:', song);
   };
 
@@ -119,6 +139,11 @@ const Index = () => {
           title: "Error",
           description: "Failed to delete song",
           variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Song Deleted",
+          description: "Song has been deleted successfully"
         });
       }
     } catch (error) {
@@ -157,6 +182,11 @@ const Index = () => {
           description: "Failed to clone song",
           variant: "destructive"
         });
+      } else {
+        toast({
+          title: "Song Cloned",
+          description: "Song has been cloned successfully"
+        });
       }
     } catch (error) {
       console.error('Error cloning song:', error);
@@ -171,18 +201,24 @@ const Index = () => {
   return (
     <div className="min-h-screen p-4">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="p-4 rounded-full music-gradient pulse-glow">
-              <Music className="h-12 w-12 text-white" />
+        <div className="flex justify-between items-center mb-8">
+          <div className="text-center flex-1">
+            <div className="flex justify-center mb-4">
+              <div className="p-4 rounded-full music-gradient pulse-glow">
+                <Music className="h-12 w-12 text-white" />
+              </div>
             </div>
+            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              AI Music Creator & Playlist Manager
+            </h1>
+            <p className="text-xl text-muted-foreground">
+              Generate professional songs with AI vocals, lyrics, and custom arrangements
+            </p>
           </div>
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            AI Music Creator & Playlist Manager
-          </h1>
-          <p className="text-xl text-muted-foreground">
-            Generate professional songs with AI vocals, lyrics, and custom arrangements
-          </p>
+          <Button variant="outline" onClick={handleLogout} className="self-start">
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
         </div>
 
         <Card className="glass-effect mb-6">

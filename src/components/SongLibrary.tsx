@@ -45,7 +45,14 @@ const SongLibrary = ({ songs, loading, onDeleteSong, onCloneSong }: SongLibraryP
   const uniqueGenres = [...new Set(songs.map(song => song.genre))];
 
   const playSong = (song: Song) => {
-    if (!song.audio_url || !audioRef.current) return;
+    if (!song.audio_url || !audioRef.current) {
+      toast({
+        title: "No Audio",
+        description: "This song doesn't have an audio file",
+        variant: "destructive"
+      });
+      return;
+    }
 
     if (currentlyPlaying === song.id) {
       // Pause current song
@@ -76,39 +83,41 @@ const SongLibrary = ({ songs, loading, onDeleteSong, onCloneSong }: SongLibraryP
   };
 
   const downloadSong = (song: Song) => {
-    if (!song.audio_url) return;
+    if (!song.audio_url) {
+      toast({
+        title: "No Audio",
+        description: "This song doesn't have an audio file to download",
+        variant: "destructive"
+      });
+      return;
+    }
     
+    // Create download link with the actual song's audio_url
     const link = document.createElement('a');
     link.href = song.audio_url;
-    link.download = `${song.artist}_${song.title}.wav`;
+    link.download = `${song.artist.replace(/[^a-z0-9]/gi, '_')}_${song.title.replace(/[^a-z0-9]/gi, '_')}.wav`;
+    link.target = '_blank'; // Open in new tab to prevent navigation issues
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
     
     toast({
       title: "Downloaded",
-      description: `"${song.title}" downloaded successfully!`
+      description: `"${song.title}" by ${song.artist} downloaded successfully!`
     });
   };
 
   const deleteSong = (song: Song) => {
-    // Stop playing if this song is currently playing
     if (currentlyPlaying === song.id && audioRef.current) {
       audioRef.current.pause();
       setCurrentlyPlaying(null);
     }
     
     onDeleteSong(song.id);
-    toast({
-      title: "Song Deleted",
-      description: `"${song.title}" has been deleted`
-    });
   };
 
   const cloneSong = (song: Song) => {
     onCloneSong(song);
-    toast({
-      title: "Song Cloned",
-      description: `"${song.title}" has been cloned for remixing`
-    });
   };
 
   if (loading) {
@@ -168,13 +177,17 @@ const SongLibrary = ({ songs, loading, onDeleteSong, onCloneSong }: SongLibraryP
 
   return (
     <div className="space-y-6">
-      {/* Hidden audio element for playback */}
       <audio
         ref={audioRef}
         onEnded={() => setCurrentlyPlaying(null)}
         onError={() => {
           console.error('Audio playback error');
           setCurrentlyPlaying(null);
+          toast({
+            title: "Playback Error",
+            description: "There was an error playing the audio",
+            variant: "destructive"
+          });
         }}
       />
 
@@ -261,19 +274,35 @@ const SongLibrary = ({ songs, loading, onDeleteSong, onCloneSong }: SongLibraryP
                     size="sm" 
                     onClick={() => playSong(song)}
                     className={currentlyPlaying === song.id ? 'bg-primary text-primary-foreground' : ''}
+                    title={currentlyPlaying === song.id ? 'Pause' : 'Play'}
                   >
                     {currentlyPlaying === song.id ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => downloadSong(song)}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => downloadSong(song)}
+                    title="Download Song"
+                  >
                     <Download className="h-3 w-3" />
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" title="Edit Song">
                     <Edit className="h-3 w-3" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => cloneSong(song)}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => cloneSong(song)}
+                    title="Clone Song"
+                  >
                     <Copy className="h-3 w-3" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => deleteSong(song)}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => deleteSong(song)}
+                    title="Delete Song"
+                  >
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -299,7 +328,7 @@ const SongLibrary = ({ songs, loading, onDeleteSong, onCloneSong }: SongLibraryP
         </Card>
       )}
 
-      {songs.length === 0 && (
+      {songs.length === 0 && !loading && (
         <Card className="glass-effect">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="p-3 rounded-full music-gradient mb-4">
